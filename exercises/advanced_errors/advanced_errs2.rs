@@ -16,8 +16,6 @@
 // 4. Complete the partial implementation of `Display` for
 //    `ParseClimateError`.
 
-// I AM NOT DONE
-
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 use std::num::{ParseFloatError, ParseIntError};
@@ -47,11 +45,24 @@ impl From<ParseIntError> for ParseClimateError {
 impl From<ParseFloatError> for ParseClimateError {
     fn from(e: ParseFloatError) -> Self {
         // TODO: Complete this function
+        Self::ParseFloat(e)
     }
 }
 
 // TODO: Implement a missing trait so that `main()` below will compile. It
 // is not necessary to implement any methods inside the missing trait.
+// impl Error for ParseClimateError {}
+
+// code to pass the last test
+impl Error for ParseClimateError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            ParseClimateError::ParseInt(err) => Some(err),
+            ParseClimateError::ParseFloat(err) => Some(err),
+            _ => None,
+        }
+    }
+}
 
 // The `Display` trait allows for other code to obtain the error formatted
 // as a user-visible string.
@@ -62,7 +73,10 @@ impl Display for ParseClimateError {
         // Imports the variants to make the following code more compact.
         use ParseClimateError::*;
         match self {
+            Empty => write!(f, "empty input"),
+            BadLen => write!(f, "incorrect number of fields"),
             NoCity => write!(f, "no city name"),
+            ParseInt(e) => write!(f, "error parsing year: {}", e),
             ParseFloat(e) => write!(f, "error parsing temperature: {}", e),
         }
     }
@@ -90,6 +104,8 @@ impl FromStr for Climate {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let v: Vec<_> = s.split(',').collect();
         let (city, year, temp) = match &v[..] {
+            [""] => return Err(ParseClimateError::Empty),
+            ["", year, temp] => return Err(ParseClimateError::NoCity),
             [city, year, temp] => (city.to_string(), year, temp),
             _ => return Err(ParseClimateError::BadLen),
         };
@@ -190,12 +206,12 @@ mod test {
         );
     }
     #[test]
-    #[ignore]
+    // #[ignore]
     fn test_downcast() {
         let res = "São Paulo,-21,28.5".parse::<Climate>();
         assert!(matches!(res, Err(ParseClimateError::ParseInt(_))));
         let err = res.unwrap_err();
-        let inner: Option<&(dyn Error + 'static)> = err.source();
+        let inner: Option<&(dyn Error + 'static)> = dbg!(err.source());
         assert!(inner.is_some());
         assert!(inner.unwrap().is::<ParseIntError>());
     }
